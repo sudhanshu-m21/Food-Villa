@@ -50,7 +50,7 @@ const Body = () => {
           className="p-2 md:p-3 ml-2 md:ml-0 md:mr-2 w-full md:w-[10%] bg-green-600 text-white rounded-r-lg hover:bg-red-600"
           onClick={() => {
             //filter data
-            const data = filterData(SearchIP, restaurentList);
+            const data = filterData(SearchIP, allrestaurents);
             //update data
             setFillteredrestaurents(data);
           }}
