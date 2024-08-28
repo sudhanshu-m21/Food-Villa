@@ -1,8 +1,11 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import Logo from "../assets/img/food  villa.png";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import UserContext from "../utils/userContext";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "../utils/firebase";
+import { addUser, removeUser } from "../utils/userSlice";
 
 const title = (
   <a href="/">
@@ -13,8 +16,40 @@ const title = (
 const Header = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { loggedInUser } = useContext(UserContext);
+  const dispatch = useDispatch();
   const cartItems = useSelector((store) => store.cart.items);
-
+  const navigate = useNavigate();
+  const location = useLocation();
+  const handleClick = () => {
+    navigate("/login");
+  };
+  const handleSignOut = () => {
+    signOut(auth)
+      .then(() => {
+        navigate("/");
+      })
+      .catch((error) => {
+        navigate("/error");
+      });
+  };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const { uid, email, displayName } = user;
+        dispatch(addUser({ uid: uid, email: email, displayName: displayName }));
+        setIsLoggedIn(true);
+        navigate("/");
+      } else {
+        dispatch(removeUser());
+        setIsLoggedIn(false);
+        navigate("/");
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+  if (location.pathname === "/login") {
+    return null;
+  }
   return (
     <div className="flex flex-col sm:flex-row justify-between p-3 bg-pink-50 shadow-sm">
       <div className="flex items-center justify-between sm:w-2/6">
@@ -69,14 +104,15 @@ const Header = () => {
         {!isLoggedIn ? (
           <button
             className="hidden sm:block bg-transparent border border-white text-black rounded-lg p-2 ml-4"
-            onClick={() => setIsLoggedIn(true)}
+            on
+            onClick={handleClick}
           >
             Login
           </button>
         ) : (
           <button
             className="hidden sm:block bg-transparent border border-white text-black rounded-lg p-2 ml-4"
-            onClick={() => setIsLoggedIn(false)}
+            onClick={handleSignOut}
           >
             Logout
           </button>

@@ -1,5 +1,6 @@
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { addItem } from "../utils/cartSlice";
+import { useNavigate } from "react-router-dom";
 
 const ItemList = ({ items }) => {
   const dispatch = useDispatch();
