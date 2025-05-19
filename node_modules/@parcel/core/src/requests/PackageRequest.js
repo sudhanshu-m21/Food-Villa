@@ -8,7 +8,7 @@ import type {StaticRunOpts} from '../RequestTracker';
 import {requestTypes} from '../RequestTracker';
 import type {Bundle} from '../types';
 import type BundleGraph from '../BundleGraph';
-import type {BundleInfo, PackageRequestResult} from '../PackagerRunner';
+import type {BundleInfo, RunPackagerRunnerResult} from '../PackagerRunner';
 import type {ConfigAndCachePath} from './ParcelConfigRequest';
 
 import nullthrows from 'nullthrows';
@@ -24,6 +24,8 @@ type PackageRequestInput = {|
   useMainThread?: boolean,
 |};
 
+export type PackageRequestResult = BundleInfo[];
+
 type RunInput<TResult> = {|
   input: PackageRequestInput,
   ...StaticRunOpts<TResult>,
@@ -32,7 +34,7 @@ type RunInput<TResult> = {|
 export type PackageRequest = {|
   id: ContentKey,
   +type: typeof requestTypes.package_request,
-  run: (RunInput<BundleInfo>) => Async<BundleInfo>,
+  run: (RunInput<BundleInfo[]>) => Async<BundleInfo[]>,
   input: PackageRequestInput,
 |};
 
@@ -66,7 +68,7 @@ async function run({input, api, farm}) {
       previousDevDeps: devDeps,
       invalidDevDeps,
       previousInvalidations: api.getInvalidations(),
-    }): PackageRequestResult);
+    }): RunPackagerRunnerResult);
 
   for (let devDepRequest of devDepRequests) {
     await runDevDepRequest(api, devDepRequest);
@@ -93,8 +95,10 @@ async function run({input, api, farm}) {
     }
   }
 
-  // $FlowFixMe[cannot-write] time is marked read-only, but this is the exception
-  bundleInfo.time = Date.now() - start;
+  for (let info of bundleInfo) {
+    // $FlowFixMe[cannot-write] time is marked read-only, but this is the exception
+    info.time = Date.now() - start;
+  }
 
   api.storeResult(bundleInfo);
   return bundleInfo;

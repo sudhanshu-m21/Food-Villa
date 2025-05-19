@@ -21,6 +21,8 @@ type WriteBundlesRequestInput = {|
   optionsRef: SharedReference,
 |};
 
+export type WriteBundlesRequestResult = Map<string, PackagedBundleInfo[]>;
+
 type RunInput<TResult> = {|
   input: WriteBundlesRequestInput,
   ...StaticRunOpts<TResult>,
@@ -30,8 +32,8 @@ export type WriteBundlesRequest = {|
   id: ContentKey,
   +type: typeof requestTypes.write_bundles_request,
   run: (
-    RunInput<Map<string, PackagedBundleInfo>>,
-  ) => Async<Map<string, PackagedBundleInfo>>,
+    RunInput<WriteBundlesRequestResult>,
+  ) => Async<WriteBundlesRequestResult>,
   input: WriteBundlesRequestInput,
 |};
 
@@ -57,9 +59,9 @@ async function run({input, api, farm, options}) {
 
   let res = new Map();
   let bundleInfoMap: {|
-    [string]: BundleInfo,
+    [string]: BundleInfo[],
   |} = {};
-  let writeEarlyPromises = {};
+  let writeEarlyPromises: {[string]: Promise<PackagedBundleInfo[]>} = {};
   let hashRefToNameHash = new Map();
   let bundles = bundleGraph.getBundles().filter(bundle => {
     // Do not package and write placeholder bundles to disk. We just
@@ -67,15 +69,20 @@ async function run({input, api, farm, options}) {
     if (bundle.isPlaceholder) {
       let hash = bundle.id.slice(-8);
       hashRefToNameHash.set(bundle.hashReference, hash);
-      let name = nullthrows(bundle.name).replace(bundle.hashReference, hash);
-      res.set(bundle.id, {
-        filePath: joinProjectPath(bundle.target.distDir, name),
-        type: bundle.type, // FIXME: this is wrong if the packager changes the type...
-        stats: {
-          time: 0,
-          size: 0,
+      let name = nullthrows(
+        bundle.name,
+        `Expected ${bundle.type} bundle to have a name`,
+      ).replace(bundle.hashReference, hash);
+      res.set(bundle.id, [
+        {
+          filePath: joinProjectPath(bundle.target.distDir, name),
+          type: bundle.type, // FIXME: this is wrong if the packager changes the type...
+          stats: {
+            time: 0,
+            size: 0,
+          },
         },
-      });
+      ]);
       return false;
     }
 
@@ -100,7 +107,7 @@ async function run({input, api, farm, options}) {
           useMainThread,
         });
 
-        let info = await api.runRequest(request);
+        let infos = await api.runRequest(request);
 
         if (!useMainThread) {
           // Force a refresh of the cache to avoid a race condition
@@ -114,42 +121,51 @@ async function run({input, api, farm, options}) {
           options.cache.refresh();
         }
 
-        bundleInfoMap[bundle.id] = info;
-        if (!info.hashReferences.length) {
+        bundleInfoMap[bundle.id] = infos;
+        if (infos.every(info => info.hashReferences.length === 0)) {
           hashRefToNameHash.set(
             bundle.hashReference,
             options.shouldContentHash
-              ? info.hash.slice(-8)
+              ? infos.length === 1
+                ? infos[0].hash.slice(-8)
+                : hashString(infos.map(i => i.hash).join(':')).slice(-8)
               : bundle.id.slice(-8),
           );
-          let writeBundleRequest = createWriteBundleRequest({
-            bundle,
-            info,
-            hashRefToNameHash,
-            bundleGraph,
-          });
-          let promise = api.runRequest(writeBundleRequest);
-          // If the promise rejects before we await it (below), we don't want to crash the build.
-          promise.catch(() => {});
-          writeEarlyPromises[bundle.id] = promise;
+          for (let info of infos) {
+            let writeBundleRequest = createWriteBundleRequest({
+              bundle,
+              info,
+              hashRefToNameHash,
+              bundleGraph,
+            });
+            let promise = api.runRequest(writeBundleRequest);
+            // If the promise rejects before we await it (below), we don't want to crash the build.
+            promise.catch(() => {});
+            writeEarlyPromises[info.cacheKeys.content] = promise;
+          }
         }
       }),
     );
     assignComplexNameHashes(hashRefToNameHash, bundles, bundleInfoMap, options);
     await Promise.all(
       bundles.map(bundle => {
-        let promise =
-          writeEarlyPromises[bundle.id] ??
-          api.runRequest(
-            createWriteBundleRequest({
-              bundle,
-              info: bundleInfoMap[bundle.id],
-              hashRefToNameHash,
-              bundleGraph,
-            }),
-          );
+        let promise = Promise.all(
+          bundleInfoMap[bundle.id].map(info => {
+            return (
+              writeEarlyPromises[info.cacheKeys.content] ??
+              api.runRequest(
+                createWriteBundleRequest({
+                  bundle,
+                  info,
+                  hashRefToNameHash,
+                  bundleGraph,
+                }),
+              )
+            );
+          }),
+        );
 
-        return promise.then(r => res.set(bundle.id, r));
+        return promise.then(r => res.set(bundle.id, r.flat()));
       }),
     );
 
@@ -175,7 +191,7 @@ function assignComplexNameHashes(
       options.shouldContentHash
         ? hashString(
             [...getBundlesIncludedInHash(bundle.id, bundleInfoMap)]
-              .map(bundleId => bundleInfoMap[bundleId].hash)
+              .flatMap(bundleId => bundleInfoMap[bundleId].map(i => i.hash))
               .join(':'),
           ).slice(-8)
         : bundle.id.slice(-8),
@@ -189,10 +205,12 @@ function getBundlesIncludedInHash(
   included = new Set(),
 ) {
   included.add(bundleId);
-  for (let hashRef of bundleInfoMap[bundleId].hashReferences) {
-    let referencedId = getIdFromHashRef(hashRef);
-    if (!included.has(referencedId)) {
-      getBundlesIncludedInHash(referencedId, bundleInfoMap, included);
+  for (let info of bundleInfoMap[bundleId]) {
+    for (let hashRef of info.hashReferences) {
+      let referencedId = getIdFromHashRef(hashRef);
+      if (!included.has(referencedId)) {
+        getBundlesIncludedInHash(referencedId, bundleInfoMap, included);
+      }
     }
   }
 
