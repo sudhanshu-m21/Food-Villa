@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { restaurentList } from "../config";
 import RestrauntCard, { withPromotedLabel } from "./RestaurentCard";
 import Shimmer from "./Shimmer";
 import { Link } from "react-router-dom";
@@ -32,14 +31,14 @@ const Body = () => {
   if (!isOnline) return <h1>🔴Please check your internet</h1>;
   // condition rendering
   //shimmer ui??
-  if (!allrestaurents) return null;
+  // if (!allrestaurents) return null;
   if (allrestaurents.length === 0) return <Shimmer />;
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="flex justify-center p-5 bg-pink-50 mx-2 my-2">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="flex flex-col md:flex-row justify-center items-center p-5 bg-pink-50 mx-2">
         <input
           type="text"
-          className="focus:outline-0 rounded-l-lg w-[60%] p-2 ml-2"
+          className="focus:outline-none rounded-l-full w-full md:w-[60%] p-2 px-4"
           placeholder="Search"
           value={SearchIP}
           onChange={(e) => {
@@ -47,7 +46,7 @@ const Body = () => {
           }}
         />
         <button
-          className="p-2 md:p-3 ml-2 md:ml-0 md:mr-2 w-full md:w-[10%] bg-green-600 text-white rounded-r-lg hover:bg-red-600"
+          className="p-2 px-6 bg-green-600 text-white rounded-r-full hover:bg-red-600 w-full md:w-auto"
           onClick={() => {
             //filter data
             const data = filterData(SearchIP, allrestaurents);
@@ -58,7 +57,7 @@ const Body = () => {
           Search
         </button>
       </div>
-      <div className="restaruntList flex justify-between flex-wrap">
+      <div className="restaruntList grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4 max-w-screen-xl mx-auto flex-grow pb-10">
         {fillteredrestaurents.map((restaurent) => {
           return (
             <Link

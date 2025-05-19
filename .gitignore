@@ -67,3 +67,9 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+
+.parcel-cache
+dist/
+node_modules/
+.node_modules
+.DS_Store

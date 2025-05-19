@@ -7,7 +7,7 @@ const RestrauntCard = ({
   avgRatingString,
 }) => {
   return (
-    <div className="w-full sm:w-[320px] h-[400px] p-2 m-2 shadow-lg bg-pink-50 hover:scale-90 transition-all delay-100 rounded-lg z-0">
+    <div className="w-full min-w-[270px] max-w-[320px] min-h-[420px] p-2 m-2 shadow-lg bg-pink-50 hover:scale-90 transition-all delay-100 rounded-lg z-0 flex flex-col">
       <img
         className="w-full h-[200px] sm:h-[200px] object-cover rounded-t-lg"
         src={IMG_URL + cloudinaryImageId}
