@@ -27,11 +27,12 @@ const Body = () => {
     );
   }
   // console.log(allrestaurents);
+
   const isOnline = useOnline();
   if (!isOnline) return <h1>🔴Please check your internet</h1>;
   // condition rendering
   //shimmer ui??
-  // if (!allrestaurents) return null;
+  if (!allrestaurents) return null;
   if (allrestaurents.length === 0) return <Shimmer />;
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
