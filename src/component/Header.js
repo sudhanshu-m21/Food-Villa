@@ -1,8 +1,8 @@
 import { useState, useContext, useEffect } from "react";
-import Logo from "../assets/img/food  villa.png";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import UserContext from "../utils/userContext";
 import { useSelector } from "react-redux";
+import { Logo } from "../assets/img/foodvilla.png";
 const title = (
   <a href="/">
     <img className="h-28 p-2" alt="Logo" src={Logo} />
